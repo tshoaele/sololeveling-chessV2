@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Solo Leveling Chess</title>
+
+<style>
+:root{
+  --bg:#070b16;
+  --dark:#16213e;
+  --light:#274472;
+  --blue:#3aa8ff;
+  --purple:#9b5cff;
+  --green:#2ecc71;
+  --red:#ff5c7a;
+  --text:#edf4ff;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Arial,sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:20px;
+}
+
+h1{
+  margin:0;
+  color:var(--blue);
+  letter-spacing:4px;
+}
+
+.sub{
+  margin:5px 0 25px;
+  opacity:0.7;
+}
+
+.board{
+  display:grid;
+  grid-template-columns:repeat(8,80px);
+  border:3px solid rgba(255,255,255,0.1);
+}
+
+.square{
+  width:80px;
+  height:80px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:42px;
+  cursor:pointer;
+  user-select:none;
+  transition:0.15s;
+}
+
+.light{
+  background:var(--light);
+}
+
+.dark{
+  background:var(--dark);
+}
+
+.player{
+  color:var(--blue);
+  text-shadow:0 0 12px rgba(58,168,255,0.8);
+}
+
+.enemy{
+  color:var(--purple);
+  text-shadow:0 0 12px rgba(155,92,255,0.8);
+}
+
+.selected{
+  outline:4px solid var(--blue);
+}
+
+.move{
+  background:var(--green) !important;
+}
+
+.capture{
+  background:var(--red) !important;
+}
+
+.info{
+  margin-top:20px;
+  text-align:center;
+}
+
+button{
+  margin-top:15px;
+  padding:12px 20px;
+  border:none;
+  border-radius:10px;
+  background:var(--blue);
+  color:white;
+  font-weight:bold;
+  cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<h1>SOLO LEVELING</h1>
+<div class="sub">CARTENON TEMPLE</div>
+
+<div id="board" class="board"></div>
+
+<div class="info">
+<div id="turn">Turn: Jinwoo</div>
+
+<button onclick="resetGame()">New Game</button>
+
+<p>
+Blue Backline = Jinwoo's Lieutenants<br>
+Blue Pawns = Knight Shadow Warriors
+</p>
+</div>
+
+<script>
+const board = document.getElementById("board");
+const turnText = document.getElementById("turn");
+
+let currentPlayer = "player";
+let selected = null;
+
+const symbols = {
+  player:{
+    king:"♔",
+    queen:"♕",
+    rook:"♖",
+    bishop:"♗",
+    knight:"♘",
+    pawn:"♟"
+  },
+  enemy:{
+    king:"♚",
+    queen:"♛",
+    rook:"♜",
+    bishop:"♝",
+    knight:"♞",
+    pawn:"♟"
+  }
+};
+
+function initialBoard(){
+  return [
+    ["er","en","eb","eq","ek","eb","en","er"],
+    ["ep","ep","ep","ep","ep","ep","ep","ep"],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["","","","","","","",""],
+    ["pp","pp","pp","pp","pp","pp","pp","pp"],
+    ["pr","pn","pb","pq","pk","pb","pn","pr"]
+  ];
+}
+
+let game = initialBoard();
+
+function resetGame(){
+  game = initialBoard();
+  currentPlayer = "player";
+  selected = null;
+  render();
+}
+
+function pieceType(piece){
+  return {
+    k:"king",
+    q:"queen",
+    r:"rook",
+    b:"bishop",
+    n:"knight",
+    p:"pawn"
+  }[piece[1]];
+}
+
+function render(valid=[]){
+
+  board.innerHTML = "";
+
+  for(let r=0;r<8;r++){
+
+    for(let c=0;c<8;c++){
+
+      const square = document.createElement("div");
+
+      square.className =
+        "square " +
+        ((r+c)%2===0 ? "light":"dark");
+
+      const piece = game[r][c];
+
+      if(selected && selected.r===r && selected.c===c){
+        square.classList.add("selected");
+      }
+
+      const found = valid.find(v=>v.r===r && v.c===c);
+
+      if(found){
+        square.classList.add(found.capture ? "capture":"move");
+      }
+
+      if(piece){
+
+        const side = piece[0]==="p"
+          ? "player"
+          : "enemy";
+
+        square.classList.add(side);
+
+        square.textContent =
+          symbols[side][pieceType(piece)];
+      }
+
+      square.onclick = ()=>clickSquare(r,c);
+
+      board.appendChild(square);
+    }
+  }
+
+  turnText.textContent =
+    currentPlayer==="player"
+      ? "Turn: Jinwoo"
+      : "Turn: Lieutenants";
+}
+
+function inside(r,c){
+  return r>=0 && r<8 && c>=0 && c<8;
+}
+
+function moves(r,c){
+
+  const piece = game[r][c];
+
+  if(!piece) return [];
+
+  const side = piece[0]==="p"
+    ? "player"
+    : "enemy";
+
+  const type = pieceType(piece);
+
+  const list = [];
+
+  function add(r2,c2){
+
+    if(!inside(r2,c2)) return false;
+
+    const target = game[r2][c2];
+
+    if(!target){
+      list.push({r:r2,c:c2});
+      return true;
+    }
+
+    const targetSide =
+      target[0]==="p"
+        ? "player"
+        : "enemy";
+
+    if(targetSide!==side){
+      list.push({
+        r:r2,
+        c:c2,
+        capture:true
+      });
+    }
+
+    return false;
+  }
+
+  if(type==="pawn"){
+
+    const dir =
+      side==="player" ? -1 : 1;
+
+    if(inside(r+dir,c) && !game[r+dir][c]){
+      list.push({r:r+dir,c});
+    }
+
+    [-1,1].forEach(dc=>{
+
+      const nr = r+dir;
+      const nc = c+dc;
+
+      if(inside(nr,nc) && game[nr][nc]){
+
+        const targetSide =
+          game[nr][nc][0]==="p"
+            ? "player"
+            : "enemy";
+
+        if(targetSide!==side){
+          list.push({
+            r:nr,
+            c:nc,
+            capture:true
+          });
+        }
+      }
+    });
+  }
+
+  if(type==="rook" || type==="queen"){
+
+    [[1,0],[-1,0],[0,1],[0,-1]]
+    .forEach(([dr,dc])=>{
+
+      for(let i=1;i<8;i++){
+
+        if(!add(r+dr*i,c+dc*i)){
+          break;
+        }
+      }
+    });
+  }
+
+  if(type==="bishop" || type==="queen"){
+
+    [[1,1],[1,-1],[-1,1],[-1,-1]]
+    .forEach(([dr,dc])=>{
+
+      for(let i=1;i<8;i++){
+
+        if(!add(r+dr*i,c+dc*i)){
+          break;
+        }
+      }
+    });
+  }
+
+  if(type==="knight"){
+
+    [
+      [2,1],[2,-1],[-2,1],[-2,-1],
+      [1,2],[1,-2],[-1,2],[-1,-2]
+    ]
+    .forEach(([dr,dc])=>{
+      add(r+dr,c+dc);
+    });
+  }
+
+  if(type==="king"){
+
+    for(let dr=-1;dr<=1;dr++){
+
+      for(let dc=-1;dc<=1;dc++){
+
+        if(dr!==0 || dc!==0){
+          add(r+dr,c+dc);
+        }
+      }
+    }
+  }
+
+  return list;
+}
+
+function clickSquare(r,c){
+
+  const piece = game[r][c];
+
+  if(selected){
+
+    const valid = moves(selected.r,selected.c);
+
+    const found =
+      valid.find(v=>v.r===r && v.c===c);
+
+    if(found){
+
+      game[r][c] =
+        game[selected.r][selected.c];
+
+      game[selected.r][selected.c] = "";
+
+      selected = null;
+
+      currentPlayer =
+        currentPlayer==="player"
+          ? "enemy"
+          : "player";
+
+      render();
+
+      if(currentPlayer==="enemy"){
+        setTimeout(enemyMove,400);
+      }
+
+      return;
+    }
+  }
+
+  if(piece){
+
+    const side =
+      piece[0]==="p"
+        ? "player"
+        : "enemy";
+
+    if(side===currentPlayer){
+
+      selected = {r,c};
+
+      render(moves(r,c));
+
+      return;
+    }
+  }
+
+  selected = null;
+  render();
+}
+
+function enemyMove(){
+
+  const all = [];
+
+  for(let r=0;r<8;r++){
+
+    for(let c=0;c<8;c++){
+
+      const piece = game[r][c];
+
+      if(piece && piece[0]==="e"){
+
+        const m = moves(r,c);
+
+        m.forEach(move=>{
+
+          all.push({
+            fromR:r,
+            fromC:c,
+            toR:move.r,
+            toC:move.c
+          });
+        });
+      }
+    }
+  }
+
+  if(all.length===0) return;
+
+  const move =
+    all[Math.floor(Math.random()*all.length)];
+
+  game[move.toR][move.toC] =
+    game[move.fromR][move.fromC];
+
+  game[move.fromR][move.fromC] = "";
+
+  currentPlayer = "player";
+
+  render();
+}
+
+resetGame();
+</script>
+
+</body>
+</html>
